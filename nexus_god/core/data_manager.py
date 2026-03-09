@@ -35,11 +35,11 @@ class NexusDataManager:
                 "sensory": "",
                 "synopsis": "",
             },
-            "characters": [],
+            "characters": {},
             "plot": {"act1": "", "act2": "", "act3": "", "key_events": "", "ending": ""},
-            "chapters": [],
-            "memory_bank": [],
-            "items": [],
+            "chapters": {},
+            "memory": {},
+            "items": {},
             "style": "มาตรฐาน",
             "chat_history": [],
             "creation_phase": "synopsis",  # phases: synopsis, planning, world, characters, story
@@ -59,19 +59,28 @@ class NexusDataManager:
                     if "world" not in d:
                         d["world"] = default_data["world"]
                     if "characters" not in d:
-                        d["characters"] = []
+                        d["characters"] = {}
                     if "plot" not in d:
                         d["plot"] = default_data["plot"]
                     if "chapters" not in d:
-                        d["chapters"] = []
-                    if "memory_bank" not in d:
-                        d["memory_bank"] = []
+                        d["chapters"] = {}
+                    if "memory" not in d:
+                        d["memory"] = {}
                     if "items" not in d:
-                        d["items"] = []
+                        d["items"] = {}
                     if "chat_history" not in d:
                         d["chat_history"] = []
                     if "creation_phase" not in d:
                         d["creation_phase"] = "synopsis"
+
+                    # Safety for list vs dict
+                    if isinstance(d.get("chapters"), list): d["chapters"] = {}
+                    if isinstance(d.get("characters"), list): d["characters"] = {}
+                    if isinstance(d.get("memory"), list): d["memory"] = {}
+                    if isinstance(d.get("items"), list): d["items"] = {}
+                    if "memory_bank" in d and not d.get("memory"):
+                        if isinstance(d["memory_bank"], dict): d["memory"] = d["memory_bank"]
+                        else: d["memory"] = {}
 
                     # Sub-fields migration
                     for k, v in default_data["world"].items():

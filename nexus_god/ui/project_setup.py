@@ -185,15 +185,15 @@ class ProjectSetup:
             }
             
             # ถ้ายังไม่มีตัวละคร ให้เพิ่มตัวละครหลัก
-            if not self.dm.data.get("characters"):
-                log_debug("Initializing characters list with main character")
-                self.dm.data["characters"] = [main_char]
+            if not self.dm.data.get("characters") or isinstance(self.dm.data["characters"], list):
+                log_debug("Initializing characters dict with main character")
+                self.dm.data["characters"] = {char_name: main_char}
             else:
                 # ถ้ามีตัวละครอยู่แล้ว ให้ตรวจสอบว่ามีตัวละครหลักหรือไม่
-                has_main = any(c.get("is_main", False) for c in self.dm.data["characters"])
+                has_main = any(c.get("is_main", False) for c in self.dm.data["characters"].values())
                 if not has_main:
-                    log_debug("Inserting main character at the beginning of the list")
-                    self.dm.data["characters"].insert(0, main_char)
+                    log_debug("Adding main character to characters dict")
+                    self.dm.data["characters"][char_name] = main_char
             
             # Mark setup as complete
             self.dm.data["is_new_project"] = False
