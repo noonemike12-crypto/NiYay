@@ -223,7 +223,7 @@ class NexusGodWriter:
             except Exception as e:
                 log_error(f"Error in random_event: {e}")
                 self.is_ai_busy = False
-                self.root.after(0, lambda: messagebox.showerror("AI Error", str(e)))
+                self.root.after(0, lambda e=e: messagebox.showerror("AI Error", str(e)))
 
         threading.Thread(target=task, daemon=True).start()
 
@@ -692,7 +692,10 @@ class NexusGodWriter:
         # Helper for simple text completion
         provider = self.dm.config.get("ai_provider", "gemini")
         if provider == "gemini":
-            client = genai.Client(api_key=self.dm.config["api_key"])
+            api_key = self.dm.config.get("api_key")
+            if not api_key:
+                raise ValueError("กรุณาระบุ Gemini API Key ในหน้าตั้งค่า")
+            client = genai.Client(api_key=api_key)
             resp = client.models.generate_content(
                 model=self.dm.config.get("model", "gemini-2.0-flash"),
                 contents=prompt,
@@ -700,10 +703,47 @@ class NexusGodWriter:
             )
             return resp.text
         else:
-            client = Groq(api_key=self.dm.config["groq_api_key"])
+            api_key = self.dm.config.get("groq_api_key")
+            if not api_key:
+                raise ValueError("กรุณาระบุ Groq API Key ในหน้าตั้งค่า")
+            client = Groq(api_key=api_key)
             resp = client.chat.completions.create(
                 model=self.dm.config.get("groq_model", "llama-3.3-70b-versatile"),
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}]
+            )
+            return resp.choices[0].message.content
+
+    def call_ai_json(self, prompt, system):
+        log_debug(f"Calling AI JSON: {prompt[:50]}...")
+        provider = self.dm.config.get("ai_provider", "gemini")
+        
+        # Add JSON instruction to system prompt if not present
+        if "JSON" not in system:
+            system += "\nตอบกลับเป็น JSON เท่านั้น"
+
+        if provider == "gemini":
+            api_key = self.dm.config.get("api_key")
+            if not api_key:
+                raise ValueError("กรุณาระบุ Gemini API Key ในหน้าตั้งค่า")
+            client = genai.Client(api_key=api_key)
+            resp = client.models.generate_content(
+                model=self.dm.config.get("model", "gemini-2.0-flash"),
+                contents=prompt,
+                config={
+                    "system_instruction": system,
+                    "response_mime_type": "application/json"
+                }
+            )
+            return resp.text
+        else:
+            api_key = self.dm.config.get("groq_api_key")
+            if not api_key:
+                raise ValueError("กรุณาระบุ Groq API Key ในหน้าตั้งค่า")
+            client = Groq(api_key=api_key)
+            resp = client.chat.completions.create(
+                model=self.dm.config.get("groq_model", "llama-3.3-70b-versatile"),
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+                response_format={"type": "json_object"}
             )
             return resp.choices[0].message.content
 
@@ -776,7 +816,29 @@ class NexusGodWriter:
     def build_item_content(self):
         log_debug("Building item content")
         card = self.build_card(self.container, "คลังไอเทมและสิ่งประดิษฐ์ (Divine Armory)")
-        tk.Label(card, text="ระบบคลังไอเทมกำลังอยู่ในการพัฒนา...", font=("Segoe UI", 12), bg=card["bg"], fg=self.colors["muted"]).pack(pady=50)
+        
+        tk.Label(card, text="จัดการอาวุธ ชุดเกราะ ยา และไอเทมสำคัญในเรื่อง", font=("Segoe UI", 10), bg=card["bg"], fg=self.colors["muted"]).pack(pady=(0, 15))
+        
+        split = tk.Frame(card, bg=card["bg"])
+        split.pack(fill="both", expand=True)
+        
+        left = tk.Frame(split, bg=card["bg"], width=250)
+        left.pack(side="left", fill="y", padx=(0, 20))
+        left.pack_propagate(False)
+        
+        self.item_listbox = tk.Listbox(left, bg=self.colors["input"], fg="white", bd=0, font=("Segoe UI", 10))
+        self.item_listbox.pack(fill="both", expand=True)
+        self.item_listbox.bind("<<ListboxSelect>>", self.on_item_select)
+        
+        btn_f = tk.Frame(left, bg=left["bg"], pady=10)
+        btn_f.pack(fill="x")
+        tk.Button(btn_f, text="+ เพิ่มไอเทม", command=self.add_item, bg=self.colors["accent"], fg="black", bd=0, pady=5).pack(fill="x", pady=2)
+        tk.Button(btn_f, text="- ลบไอเทม", command=self.delete_item, bg=self.colors["danger"], fg="white", bd=0, pady=5).pack(fill="x", pady=2)
+
+        self.item_form = tk.Frame(split, bg=card["bg"])
+        self.item_form.pack(side="left", fill="both", expand=True)
+        
+        self.refresh_item_list()
 
     def build_plot_content(self):
         log_debug("Building plot content")
@@ -863,12 +925,85 @@ class NexusGodWriter:
     def build_review_content(self):
         log_debug("Building review content")
         card = self.build_card(self.container, "ตรวจสอบคัมภีร์ (Divine Review)")
-        tk.Label(card, text="ระบบตรวจสอบเนื้อเรื่องกำลังอยู่ในการพัฒนา...", font=("Segoe UI", 12), bg=card["bg"], fg=self.colors["muted"]).pack(pady=50)
+        
+        tk.Label(card, text="ให้ AI ช่วยตรวจสอบความสมเหตุสมผล, โทนเรื่อง, และคำผิดในตอนปัจจุบัน", font=("Segoe UI", 10), bg=card["bg"], fg=self.colors["muted"]).pack(pady=(0, 20))
+        
+        btn_f = tk.Frame(card, bg=card["bg"])
+        btn_f.pack(fill="x", pady=10)
+        
+        tk.Button(btn_f, text="🔍 ตรวจสอบตอนปัจจุบัน", command=self.ai_review_chapter, bg=self.colors["accent"], fg="black", font=("Segoe UI", 10, "bold"), bd=0, padx=30, pady=12).pack()
+        
+        self.review_display = scrolledtext.ScrolledText(card, bg=self.colors["input"], fg=self.colors["text"], font=("Segoe UI", 10), bd=0, wrap=tk.WORD)
+        self.review_display.pack(fill="both", expand=True, pady=20)
+        self.review_display.config(state="disabled")
+
+    def ai_review_chapter(self):
+        name = self.chapter_selector.get()
+        content = self.editor_text.get("1.0", tk.END).strip()
+        if not content:
+            messagebox.showwarning("คำเตือน", "ไม่มีเนื้อหาให้ตรวจสอบ")
+            return
+            
+        if hasattr(self, 'is_ai_busy') and self.is_ai_busy: return
+        self.is_ai_busy = True
+        
+        def task():
+            try:
+                self.root.after(0, lambda: self.status_label.config(text="AI กำลังตรวจสอบ..."))
+                prompt = f"ช่วยตรวจสอบเนื้อหานิยายตอน '{name}' นี้:\n\n{content}\n\nโดยให้คำแนะนำในหัวข้อ:\n1. ความสมเหตุสมผลของเนื้อเรื่อง\n2. โทนและการใช้ภาษา\n3. คำผิดหรือจุดที่ควรแก้ไข"
+                res = self.call_ai_simple(prompt, "คุณคือบรรณาธิการนิยายมืออาชีพ")
+                
+                def update():
+                    self.review_display.config(state="normal")
+                    self.review_display.delete("1.0", tk.END)
+                    self.review_display.insert("1.0", res)
+                    self.review_display.config(state="disabled")
+                    self.is_ai_busy = False
+                    self.status_label.config(text="ตรวจสอบเสร็จสิ้น")
+                
+                self.root.after(0, update)
+            except Exception as e:
+                log_error(f"Error in ai_review: {e}")
+                self.is_ai_busy = False
+                self.root.after(0, lambda e=e: messagebox.showerror("AI Error", str(e)))
+
+        threading.Thread(target=task, daemon=True).start()
 
     def build_export_content(self):
         log_debug("Building export content")
         card = self.build_card(self.container, "AI และส่งออก (Export & AI)")
-        tk.Label(card, text="ระบบส่งออกกำลังอยู่ในการพัฒนา...", font=("Segoe UI", 12), bg=card["bg"], fg=self.colors["muted"]).pack(pady=50)
+        
+        tk.Label(card, text="ส่งออกนิยายของคุณเป็นไฟล์ข้อความเพื่อนำไปใช้งานต่อ", font=("Segoe UI", 10), bg=card["bg"], fg=self.colors["muted"]).pack(pady=(0, 30))
+        
+        tk.Button(card, text="🚀 ส่งออกเป็นไฟล์ .txt", command=self.export_story, bg=self.colors["success"], fg="white", font=("Segoe UI", 12, "bold"), bd=0, padx=50, pady=20).pack()
+
+    def export_story(self):
+        log_info("Exporting story")
+        chapters = self.dm.data.get("chapters", {})
+        if not chapters:
+            messagebox.showwarning("คำเตือน", "ไม่มีเนื้อหาให้ส่งออก")
+            return
+            
+        file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")])
+        if not file_path: return
+        
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(f"ชื่อเรื่อง: {self.dm.data['world'].get('name', 'ไม่ระบุ')}\n")
+                f.write(f"แนวเรื่อง: {self.dm.data['world'].get('genre', 'ไม่ระบุ')}\n")
+                f.write("="*30 + "\n\n")
+                
+                # Sort chapters if they are named like "ตอนที่ X"
+                sorted_keys = sorted(chapters.keys())
+                for key in sorted_keys:
+                    f.write(f"--- {key} ---\n\n")
+                    f.write(chapters[key])
+                    f.write("\n\n" + "="*30 + "\n\n")
+            
+            messagebox.showinfo("สำเร็จ", f"ส่งออกไฟล์เรียบร้อยแล้วที่: {file_path}")
+        except Exception as e:
+            log_error(f"Error exporting story: {e}")
+            messagebox.showerror("ข้อผิดพลาด", f"ไม่สามารถส่งออกไฟล์ได้: {e}")
 
     def build_settings_content(self):
         log_debug("Building settings content")
@@ -877,8 +1012,16 @@ class NexusGodWriter:
         self.set_theme = self.create_input(card, "ธีม (dark/light)")
         self.set_theme.insert(0, self.dm.config.get("theme", "dark"))
         
+        tk.Label(card, text="AI Provider:", font=("Segoe UI", 9, "bold"), bg=card["bg"], fg=self.colors["accent"]).pack(anchor="w", pady=(10, 5))
+        self.set_provider = ttk.Combobox(card, values=["gemini", "groq"])
+        self.set_provider.pack(fill="x", pady=(0, 10))
+        self.set_provider.set(self.dm.config.get("ai_provider", "gemini"))
+
         self.set_api = self.create_input(card, "Gemini API Key")
         self.set_api.insert(0, self.dm.config.get("api_key", ""))
+        
+        self.set_groq_api = self.create_input(card, "Groq API Key")
+        self.set_groq_api.insert(0, self.dm.config.get("groq_api_key", ""))
         
         tk.Button(card, text="บันทึกการตั้งค่า ⚙️", command=self.save_settings, bg=self.colors["success"], fg="white", font=("Segoe UI", 10, "bold"), bd=0, pady=12).pack(fill="x", pady=20)
 
@@ -926,7 +1069,7 @@ class NexusGodWriter:
             except Exception as e:
                 log_error(f"Error in send_chat: {e}")
                 self.is_ai_busy = False
-                self.root.after(0, lambda: messagebox.showerror("AI Error", str(e)))
+                self.root.after(0, lambda e=e: messagebox.showerror("AI Error", str(e)))
 
         threading.Thread(target=task, daemon=True).start()
 
@@ -1208,13 +1351,77 @@ class NexusGodWriter:
         self.refresh_memory_list()
         messagebox.showinfo("สำเร็จ", "บันทึกความจำแล้ว")
 
+    def refresh_item_list(self):
+        log_debug("Refreshing item listbox")
+        self.item_listbox.delete(0, tk.END)
+        items = self.dm.data.get("items", {})
+        for name in items:
+            self.item_listbox.insert(tk.END, name)
+
+    def on_item_select(self, event):
+        sel = self.item_listbox.curselection()
+        if not sel: return
+        name = self.item_listbox.get(sel[0])
+        self.build_item_form(name)
+
+    def build_item_form(self, name):
+        for w in self.item_form.winfo_children(): w.destroy()
+        
+        data = self.dm.data.get("items", {}).get(name, {})
+        
+        tk.Label(self.item_form, text=f"ไอเทม: {name}", font=("Segoe UI", 12, "bold"), bg=self.item_form["bg"], fg=self.colors["accent"]).pack(anchor="w", pady=(0, 15))
+        
+        self.item_name_input = self.create_input(self.item_form, "ชื่อไอเทม")
+        self.item_name_input.insert(0, name)
+        
+        self.item_desc_input = self.create_input(self.item_form, "รายละเอียด/ความสามารถ", 10)
+        self.item_desc_input.insert("1.0", data.get("description", ""))
+        
+        tk.Button(self.item_form, text="บันทึกไอเทม 💾", command=lambda: self.save_item(name), bg=self.colors["success"], fg="white", bd=0, pady=10).pack(fill="x", pady=20)
+
+    def add_item(self):
+        name = filedialog.askstring("เพิ่มไอเทม", "กรุณาใส่ชื่อไอเทม:")
+        if name:
+            if "items" not in self.dm.data: self.dm.data["items"] = {}
+            self.dm.data["items"][name] = {"description": ""}
+            self.refresh_item_list()
+            self.dm.save_all()
+
+    def delete_item(self):
+        sel = self.item_listbox.curselection()
+        if not sel: return
+        name = self.item_listbox.get(sel[0])
+        if messagebox.askyesno("ยืนยัน", f"ลบไอเทม '{name}'?"):
+            del self.dm.data["items"][name]
+            self.refresh_item_list()
+            for w in self.item_form.winfo_children(): w.destroy()
+            self.dm.save_all()
+
+    def save_item(self, old_name):
+        new_name = self.item_name_input.get().strip()
+        new_desc = self.item_desc_input.get("1.0", tk.END).strip()
+        
+        if "items" not in self.dm.data: self.dm.data["items"] = {}
+        
+        if new_name != old_name:
+            del self.dm.data["items"][old_name]
+        
+        self.dm.data["items"][new_name] = {"description": new_desc}
+        self.dm.save_all()
+        self.refresh_item_list()
+        messagebox.showinfo("สำเร็จ", "บันทึกไอเทมแล้ว")
+
     def save_settings(self):
         log_info("Saving settings from form")
         theme = self.set_theme.get().strip()
         api_key = self.set_api.get().strip()
+        groq_api_key = self.set_groq_api.get().strip()
+        provider = self.set_provider.get().strip()
         
         self.dm.config["theme"] = theme
         self.dm.config["api_key"] = api_key
+        self.dm.config["groq_api_key"] = groq_api_key
+        self.dm.config["ai_provider"] = provider
         self.dm.save_config()
         
         messagebox.showinfo("สำเร็จ", "บันทึกการตั้งค่าแล้ว (กรุณารีสตาร์ทโปรแกรมเพื่อเปลี่ยนธีม)")
