@@ -175,6 +175,10 @@ class NexusDataManager:
         except Exception as e:
             log_error(f"Error initiating async save: {e}")
 
+    def save_config(self):
+        """Alias for save_all to ensure compatibility"""
+        self.save_all()
+
     def list_projects(self):
         try:
             return [

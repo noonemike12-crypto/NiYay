@@ -41,6 +41,6 @@ class SettingsTab:
         self.dm.config["api_key"] = api_key
         self.dm.config["groq_api_key"] = groq_api_key
         self.dm.config["ai_provider"] = provider
-        self.dm.save_config()
+        self.dm.save_all()
         
         messagebox.showinfo("สำเร็จ", "บันทึกการตั้งค่าแล้ว (กรุณารีสตาร์ทโปรแกรมเพื่อเปลี่ยนธีม)")
