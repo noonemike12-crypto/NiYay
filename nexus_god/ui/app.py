@@ -793,9 +793,18 @@ class NexusGodWriter:
         tk.Button(card, text="บันทึกโครงเรื่อง 💾", command=self.save_plot_data, bg=self.colors["success"], fg="white", font=("Segoe UI", 10, "bold"), bd=0, pady=12).pack(fill="x", pady=20)
 
     def build_editor_content(self):
-        log_debug("Building editor content")
+        log_debug("Building editor content with AI tools")
         card = self.build_card(self.container, "แก้ไขเนื้อเรื่อง (Divine Editor)")
         
+        # Toolbar for AI Actions
+        toolbar = tk.Frame(card, bg=self.colors["sidebar"], pady=5, padx=10)
+        toolbar.pack(fill="x", pady=(0, 10))
+        
+        tk.Button(toolbar, text="✨ เขียนต่อ (Continue)", command=self.ai_continue_writing, bg=self.colors["accent"], fg="black", font=("Segoe UI", 8, "bold"), bd=0, padx=10, pady=5).pack(side="left", padx=2)
+        tk.Button(toolbar, text="🪄 ขัดเกลา (Improve)", command=self.ai_improve_text, bg=self.colors["success"], fg="white", font=("Segoe UI", 8, "bold"), bd=0, padx=10, pady=5).pack(side="left", padx=2)
+        tk.Button(toolbar, text="📜 แนะนำฉากต่อไป", command=self.ai_suggest_scene, bg=self.colors["warning"], fg="black", font=("Segoe UI", 8, "bold"), bd=0, padx=10, pady=5).pack(side="left", padx=2)
+        tk.Button(toolbar, text="💾 บันทึกเนื้อหา", command=self.save_current_chapter, bg=self.colors["muted"], fg="white", font=("Segoe UI", 8), bd=0, padx=10, pady=5).pack(side="right", padx=2)
+
         # Chapter Selector
         top_f = tk.Frame(card, bg=card["bg"])
         top_f.pack(fill="x", pady=(0, 10))
@@ -808,7 +817,7 @@ class NexusGodWriter:
         tk.Button(top_f, text="+ เพิ่มตอน", command=self.add_chapter, bg=self.colors["accent"], fg="black", bd=0, padx=10).pack(side="left")
         
         # Editor
-        self.editor_text = scrolledtext.ScrolledText(card, bg=self.colors["input"], fg=self.colors["text"], font=("Cordia New", 16), bd=0, wrap=tk.WORD)
+        self.editor_text = scrolledtext.ScrolledText(card, bg=self.colors["input"], fg=self.colors["text"], font=("Cordia New", 16), bd=0, wrap=tk.WORD, undo=True)
         self.editor_text.pack(fill="both", expand=True, pady=10)
         
         # Load first chapter if exists
@@ -816,11 +825,40 @@ class NexusGodWriter:
             first_key = list(self.dm.data["chapters"].keys())[0]
             self.chapter_selector.set(first_key)
             self.editor_text.insert("1.0", self.dm.data["chapters"][first_key])
+        
+        # Status bar for editor
+        self.editor_status = tk.Label(card, text="พร้อมใช้งาน", font=("Segoe UI", 8), bg=card["bg"], fg=self.colors["muted"])
+        self.editor_status.pack(anchor="e")
 
     def build_memory_content(self):
         log_debug("Building memory content")
         card = self.build_card(self.container, "ธนาคารความจำ (Memory Bank)")
-        tk.Label(card, text="ระบบธนาคารความจำกำลังอยู่ในการพัฒนา...", font=("Segoe UI", 12), bg=card["bg"], fg=self.colors["muted"]).pack(pady=50)
+        
+        tk.Label(card, text="เก็บรวบรวมข้อมูล Lore, สถานที่, และความลับของโลก เพื่อให้ AI จดจำได้แม่นยำ", font=("Segoe UI", 10), bg=card["bg"], fg=self.colors["muted"]).pack(pady=(0, 15))
+        
+        # Split List and Form
+        split = tk.Frame(card, bg=card["bg"])
+        split.pack(fill="both", expand=True)
+        
+        # Left: Memory List
+        left = tk.Frame(split, bg=card["bg"], width=250)
+        left.pack(side="left", fill="y", padx=(0, 20))
+        left.pack_propagate(False)
+        
+        self.memory_listbox = tk.Listbox(left, bg=self.colors["input"], fg="white", bd=0, font=("Segoe UI", 10))
+        self.memory_listbox.pack(fill="both", expand=True)
+        self.memory_listbox.bind("<<ListboxSelect>>", self.on_memory_select)
+        
+        btn_f = tk.Frame(left, bg=left["bg"], pady=10)
+        btn_f.pack(fill="x")
+        tk.Button(btn_f, text="+ เพิ่มความจำ", command=self.add_memory, bg=self.colors["accent"], fg="black", bd=0, pady=5).pack(fill="x", pady=2)
+        tk.Button(btn_f, text="- ลบความจำ", command=self.delete_memory, bg=self.colors["danger"], fg="white", bd=0, pady=5).pack(fill="x", pady=2)
+
+        # Right: Memory Form
+        self.memory_form = tk.Frame(split, bg=card["bg"])
+        self.memory_form.pack(side="left", fill="both", expand=True)
+        
+        self.refresh_memory_list()
 
     def build_review_content(self):
         log_debug("Building review content")
@@ -1003,6 +1041,172 @@ class NexusGodWriter:
         self.chapter_selector["values"] = list(self.dm.data["chapters"].keys())
         self.chapter_selector.set(name)
         self.on_chapter_change(None)
+
+    def save_current_chapter(self):
+        name = self.chapter_selector.get()
+        if not name: return
+        log_info(f"Saving chapter: {name}")
+        content = self.editor_text.get("1.0", tk.END).strip()
+        self.dm.data["chapters"][name] = content
+        self.dm.save_all()
+        self.editor_status.config(text=f"บันทึกแล้วเมื่อ {datetime.now().strftime('%H:%M:%S')}")
+
+    def ai_continue_writing(self):
+        if hasattr(self, 'is_ai_busy') and self.is_ai_busy: return
+        self.is_ai_busy = True
+        log_info("AI Continue Writing triggered")
+        
+        # Get context
+        content = self.editor_text.get("1.0", tk.END).strip()
+        # Take last 2000 chars for context
+        context_text = content[-2000:] if len(content) > 2000 else content
+        
+        world_info = json.dumps(self.dm.data["world"], ensure_ascii=False)
+        memory_info = json.dumps(self.dm.data.get("memory", {}), ensure_ascii=False)
+        
+        def task():
+            try:
+                self.root.after(0, lambda: self.editor_status.config(text="AI กำลังเขียนต่อ..."))
+                prompt = f"ข้อมูลโลก: {world_info}\nความจำ: {memory_info}\n\nเนื้อหาล่าสุด:\n{context_text}\n\nช่วยเขียนเนื้อหาต่อจากนี้อีกประมาณ 2-3 ย่อหน้า โดยรักษาโทนเรื่องเดิม"
+                
+                res = self.call_ai_simple(prompt, "คุณคือผู้ช่วยเขียนนิยายมืออาชีพ เขียนเนื้อหาที่ลื่นไหลและน่าติดตาม")
+                
+                def update():
+                    self.editor_text.insert(tk.END, f"\n\n{res}")
+                    self.editor_text.see(tk.END)
+                    self.is_ai_busy = False
+                    self.editor_status.config(text="เขียนต่อเสร็จสิ้น")
+                    self.save_current_chapter()
+                
+                self.root.after(0, update)
+            except Exception as e:
+                log_error(f"Error in ai_continue: {e}")
+                self.is_ai_busy = False
+                self.root.after(0, lambda: messagebox.showerror("AI Error", str(e)))
+
+        threading.Thread(target=task, daemon=True).start()
+
+    def ai_improve_text(self):
+        try:
+            selected = self.editor_text.get(tk.SEL_FIRST, tk.SEL_LAST)
+        except tk.TclError:
+            messagebox.showwarning("คำเตือน", "กรุณาคลุมดำข้อความที่ต้องการขัดเกลา")
+            return
+
+        if hasattr(self, 'is_ai_busy') and self.is_ai_busy: return
+        self.is_ai_busy = True
+        log_info("AI Improve Text triggered")
+
+        def task():
+            try:
+                self.root.after(0, lambda: self.editor_status.config(text="AI กำลังขัดเกลา..."))
+                prompt = f"ช่วยขัดเกลาข้อความนี้ให้สละสลวยและได้อารมณ์มากขึ้น:\n\n{selected}"
+                res = self.call_ai_simple(prompt, "คุณคือบรรณาธิการมืออาชีพที่เชี่ยวชาญการใช้ภาษาไทย")
+                
+                def update():
+                    # Replace selection
+                    start = self.editor_text.index(tk.SEL_FIRST)
+                    end = self.editor_text.index(tk.SEL_LAST)
+                    self.editor_text.delete(start, end)
+                    self.editor_text.insert(start, res)
+                    self.is_ai_busy = False
+                    self.editor_status.config(text="ขัดเกลาเสร็จสิ้น")
+                    self.save_current_chapter()
+                
+                self.root.after(0, update)
+            except Exception as e:
+                log_error(f"Error in ai_improve: {e}")
+                self.is_ai_busy = False
+                self.root.after(0, lambda: messagebox.showerror("AI Error", str(e)))
+
+        threading.Thread(target=task, daemon=True).start()
+
+    def ai_suggest_scene(self):
+        if hasattr(self, 'is_ai_busy') and self.is_ai_busy: return
+        self.is_ai_busy = True
+        log_info("AI Suggest Scene triggered")
+        
+        content = self.editor_text.get("1.0", tk.END).strip()
+        context_text = content[-2000:] if len(content) > 2000 else content
+        
+        def task():
+            try:
+                self.root.after(0, lambda: self.editor_status.config(text="AI กำลังคิดฉากต่อไป..."))
+                prompt = f"จากเนื้อหาล่าสุดนี้:\n{context_text}\n\nช่วยแนะนำ 3 แนวทางที่เป็นไปได้สำหรับฉากต่อไป"
+                res = self.call_ai_simple(prompt, "คุณคือที่ปรึกษาด้านการวางโครงเรื่องนิยาย")
+                
+                def show():
+                    messagebox.showinfo("🎬 คำแนะนำฉากต่อไป", res)
+                    self.is_ai_busy = False
+                    self.editor_status.config(text="แนะนำเสร็จสิ้น")
+                
+                self.root.after(0, show)
+            except Exception as e:
+                log_error(f"Error in ai_suggest: {e}")
+                self.is_ai_busy = False
+                self.root.after(0, lambda: messagebox.showerror("AI Error", str(e)))
+
+        threading.Thread(target=task, daemon=True).start()
+
+    def refresh_memory_list(self):
+        log_debug("Refreshing memory listbox")
+        self.memory_listbox.delete(0, tk.END)
+        memory = self.dm.data.get("memory", {})
+        for key in memory:
+            self.memory_listbox.insert(tk.END, key)
+
+    def on_memory_select(self, event):
+        sel = self.memory_listbox.curselection()
+        if not sel: return
+        key = self.memory_listbox.get(sel[0])
+        self.build_memory_form(key)
+
+    def build_memory_form(self, key):
+        for w in self.memory_form.winfo_children(): w.destroy()
+        
+        val = self.dm.data.get("memory", {}).get(key, "")
+        
+        tk.Label(self.memory_form, text=f"ความจำ: {key}", font=("Segoe UI", 12, "bold"), bg=self.memory_form["bg"], fg=self.colors["accent"]).pack(anchor="w", pady=(0, 15))
+        
+        self.mem_key_input = self.create_input(self.memory_form, "หัวข้อความจำ")
+        self.mem_key_input.insert(0, key)
+        
+        self.mem_val_input = self.create_input(self.memory_form, "รายละเอียด", 10)
+        self.mem_val_input.insert("1.0", val)
+        
+        tk.Button(self.memory_form, text="บันทึกความจำ 💾", command=lambda: self.save_memory(key), bg=self.colors["success"], fg="white", bd=0, pady=10).pack(fill="x", pady=20)
+
+    def add_memory(self):
+        key = filedialog.askstring("เพิ่มความจำ", "กรุณาใส่หัวข้อความจำ (เช่น ชื่อเมือง, ตำนาน):")
+        if key:
+            if "memory" not in self.dm.data: self.dm.data["memory"] = {}
+            self.dm.data["memory"][key] = ""
+            self.refresh_memory_list()
+            self.dm.save_all()
+
+    def delete_memory(self):
+        sel = self.memory_listbox.curselection()
+        if not sel: return
+        key = self.memory_listbox.get(sel[0])
+        if messagebox.askyesno("ยืนยัน", f"ลบความจำ '{key}'?"):
+            del self.dm.data["memory"][key]
+            self.refresh_memory_list()
+            for w in self.memory_form.winfo_children(): w.destroy()
+            self.dm.save_all()
+
+    def save_memory(self, old_key):
+        new_key = self.mem_key_input.get().strip()
+        new_val = self.mem_val_input.get("1.0", tk.END).strip()
+        
+        if "memory" not in self.dm.data: self.dm.data["memory"] = {}
+        
+        if new_key != old_key:
+            del self.dm.data["memory"][old_key]
+        
+        self.dm.data["memory"][new_key] = new_val
+        self.dm.save_all()
+        self.refresh_memory_list()
+        messagebox.showinfo("สำเร็จ", "บันทึกความจำแล้ว")
 
     def save_settings(self):
         log_info("Saving settings from form")
