@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import os
 from nexus_god.ai.providers import Groq, genai, HAS_GENAI, HAS_GROQ
 from nexus_god.core.logging_utils import log_debug, log_error
 
@@ -11,9 +12,9 @@ class AIService:
         log_debug(f"Calling AI simple: {prompt[:50]}...")
         provider = self.config.get("ai_provider", "gemini")
         if provider == "gemini":
-            api_key = self.config.get("api_key")
+            api_key = self.config.get("api_key") or os.environ.get("GEMINI_API_KEY")
             if not api_key:
-                raise ValueError("กรุณาระบุ Gemini API Key ในหน้าตั้งค่า")
+                raise ValueError("กรุณาระบุ Gemini API Key ในหน้าตั้งค่า หรือตั้งค่า Environment Variable 'GEMINI_API_KEY'")
             client = genai.Client(api_key=api_key)
             resp = client.models.generate_content(
                 model=self.config.get("model", "gemini-2.0-flash"),
@@ -40,9 +41,9 @@ class AIService:
             system += "\nตอบกลับเป็น JSON เท่านั้น"
 
         if provider == "gemini":
-            api_key = self.config.get("api_key")
+            api_key = self.config.get("api_key") or os.environ.get("GEMINI_API_KEY")
             if not api_key:
-                raise ValueError("กรุณาระบุ Gemini API Key ในหน้าตั้งค่า")
+                raise ValueError("กรุณาระบุ Gemini API Key ในหน้าตั้งค่า หรือตั้งค่า Environment Variable 'GEMINI_API_KEY'")
             client = genai.Client(api_key=api_key)
             resp = client.models.generate_content(
                 model=self.config.get("model", "gemini-2.0-flash"),
