@@ -6,13 +6,14 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
 
 from nexus_god.core.data_manager import NexusDataManager
-from nexus_god.core.logging_utils import log_error
+from nexus_god.core.logging_utils import log_error, log_debug, log_info
 
 
 class ProjectSetup:
     """หน้าจอ Setup สำหรับโปรเจกต์ใหม่"""
     
     def __init__(self, root, data_manager: NexusDataManager):
+        log_debug("Initializing ProjectSetup")
         self.root = root
         self.dm = data_manager
         self.root.title("🌌 NEXUS GOD WRITER - ตั้งค่าโปรเจกต์ใหม่")
@@ -145,20 +146,24 @@ class ProjectSetup:
     
     def complete_setup(self):
         """บันทึกการตั้งค่าและเสร็จสิ้น"""
+        log_info("Completing project setup with user input")
         genre = self.genre_entry.get().strip()
         char_name = self.char_name_entry.get().strip()
         
         if not genre:
+            log_debug("Setup validation failed: Genre is missing")
             messagebox.showwarning("คำเตือน", "กรุณาระบุแนวเรื่อง")
             self.genre_entry.focus()
             return
         
         if not char_name:
+            log_debug("Setup validation failed: Main character name is missing")
             messagebox.showwarning("คำเตือน", "กรุณาระบุชื่อตัวละครหลัก")
             self.char_name_entry.focus()
             return
         
         try:
+            log_info(f"Setting up project with genre: {genre} and main character: {char_name}")
             # บันทึกแนวเรื่อง
             self.dm.data["project_genre"] = genre
             self.dm.data["world"]["genre"] = genre
@@ -177,16 +182,19 @@ class ProjectSetup:
             
             # ถ้ายังไม่มีตัวละคร ให้เพิ่มตัวละครหลัก
             if not self.dm.data.get("characters"):
+                log_debug("Initializing characters list with main character")
                 self.dm.data["characters"] = [main_char]
             else:
                 # ถ้ามีตัวละครอยู่แล้ว ให้ตรวจสอบว่ามีตัวละครหลักหรือไม่
                 has_main = any(c.get("is_main", False) for c in self.dm.data["characters"])
                 if not has_main:
+                    log_debug("Inserting main character at the beginning of the list")
                     self.dm.data["characters"].insert(0, main_char)
             
             # Mark setup as complete
             self.dm.data["is_new_project"] = False
             self.dm.save_all()
+            log_info("Project setup completed successfully")
             
             self.setup_complete = True
             self.root.quit()
@@ -196,6 +204,7 @@ class ProjectSetup:
     
     def skip_setup(self):
         """ข้ามการตั้งค่า (ใช้ค่าเริ่มต้น)"""
+        log_info("Skipping project setup, using defaults")
         try:
             # Set default genre if not set
             if not self.dm.data.get("project_genre"):

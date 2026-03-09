@@ -16,8 +16,8 @@ def configure_logging(log_dir_name: str = "nexus_god_logs") -> Path:
     # If logging is already configured, basicConfig is a no-op.
     logging.basicConfig(
         filename=str(log_file),
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=logging.DEBUG,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         encoding="utf-8",
     )
     return log_file
@@ -26,6 +26,16 @@ def configure_logging(log_dir_name: str = "nexus_god_logs") -> Path:
 def log_error(msg: str) -> None:
     logging.error(msg)
     print(f"ERROR: {msg}")
+
+
+def log_debug(msg: str) -> None:
+    logging.debug(msg)
+    print(f"DEBUG: {msg}")
+
+
+def log_info(msg: str) -> None:
+    logging.info(msg)
+    print(f"INFO: {msg}")
 
 
 def _thread_exception_handler(args: threading.ExceptHookArgs) -> None:

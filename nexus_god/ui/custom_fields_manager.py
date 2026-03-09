@@ -6,13 +6,14 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from nexus_god.core.data_manager import NexusDataManager
-from nexus_god.core.logging_utils import log_error
+from nexus_god.core.logging_utils import log_error, log_debug, log_info
 
 
 class CustomFieldsManager:
     """หน้าจอจัดการ Custom Fields"""
     
     def __init__(self, parent, data_manager: NexusDataManager):
+        log_debug("Initializing CustomFieldsManager")
         self.parent = parent
         self.dm = data_manager
         self.dialog = tk.Toplevel(parent)
@@ -120,8 +121,10 @@ class CustomFieldsManager:
     
     def refresh_fields_list(self):
         """รีเฟรชรายการฟิลด์"""
+        log_debug("Refreshing custom fields listbox")
         self.fields_listbox.delete(0, tk.END)
         fields = self.get_current_fields()
+        log_info(f"Found {len(fields)} fields in current configuration")
         
         for field in fields:
             required = " *" if field.get("required", False) else ""
@@ -131,6 +134,7 @@ class CustomFieldsManager:
     
     def add_field(self):
         """เพิ่มฟิลด์ใหม่"""
+        log_debug("Adding new custom field")
         self.show_field_dialog()
     
     def edit_field(self):
@@ -151,6 +155,7 @@ class CustomFieldsManager:
         """ลบฟิลด์ที่เลือก"""
         selection = self.fields_listbox.curselection()
         if not selection:
+            log_debug("No field selected to remove")
             messagebox.showwarning("คำเตือน", "กรุณาเลือกฟิลด์ที่ต้องการลบ")
             return
         
@@ -160,6 +165,7 @@ class CustomFieldsManager:
             return
         
         field = fields[idx]
+        log_info(f"Removing field: {field.get('key')}")
         if field.get("required", False):
             messagebox.showwarning("คำเตือน", "ไม่สามารถลบฟิลด์ที่จำเป็นได้")
             return
@@ -343,6 +349,7 @@ class CustomFieldsManager:
     
     def save_fields(self):
         """บันทึกการเปลี่ยนแปลง"""
+        log_info("Saving custom fields changes")
         try:
             self.dm.save_all()
             messagebox.showinfo("สำเร็จ", "บันทึกการตั้งค่าฟิลด์เรียบร้อยแล้ว")

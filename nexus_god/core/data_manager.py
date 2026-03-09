@@ -5,11 +5,12 @@ import threading
 from pathlib import Path
 from tkinter import messagebox
 
-from .logging_utils import log_error
+from .logging_utils import log_error, log_debug, log_info
 
 
 class NexusDataManager:
     def __init__(self):
+        log_debug("Initializing NexusDataManager")
         self.data_dir = Path("nexus_god_data")
         self.data_dir.mkdir(exist_ok=True)
         self.config_file = self.data_dir / "config.json"
@@ -21,6 +22,7 @@ class NexusDataManager:
         self.data = self.load_data()
 
     def load_data(self):
+        log_debug(f"Loading data for project: {self.current_project}")
         default_data = {
             "world": {
                 "name": "",
@@ -95,6 +97,7 @@ class NexusDataManager:
         return default_data
 
     def load_config(self):
+        log_debug("Loading configuration")
         default_config = {
             "api_key": "",
             "model": "gemini-2.0-flash",
@@ -137,6 +140,7 @@ class NexusDataManager:
 
     def save_all(self):
         # Run saving in a background thread to prevent UI hang
+        log_debug("Initiating save_all")
         try:
             data_copy = json.loads(json.dumps(self.data))  # Simple deep copy
             config_copy = json.loads(json.dumps(self.config))
@@ -172,6 +176,7 @@ class NexusDataManager:
             return ["Default_Story"]
 
     def switch_project(self, name):
+        log_info(f"Switching to project: {name}")
         try:
             self.save_all()
             self.current_project = name

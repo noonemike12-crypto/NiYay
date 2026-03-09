@@ -7,13 +7,14 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 
 from nexus_god.core.data_manager import NexusDataManager
-from nexus_god.core.logging_utils import log_error
+from nexus_god.core.logging_utils import log_error, log_debug, log_info
 
 
 class ProjectSelector:
     """หน้าจอเลือกโปรเจกต์"""
     
     def __init__(self, root):
+        log_debug("Initializing ProjectSelector")
         self.root = root
         self.root.title("🌌 NEXUS GOD WRITER - เลือกโปรเจกต์")
         self.root.geometry("800x600")
@@ -127,16 +128,20 @@ class ProjectSelector:
     
     def refresh_project_list(self):
         """รีเฟรชรายการโปรเจกต์"""
+        log_debug("Refreshing project listbox from data directory")
         self.project_listbox.delete(0, tk.END)
         projects = self.dm.list_projects()
         if projects:
+            log_info(f"Found {len(projects)} projects")
             for project in projects:
                 self.project_listbox.insert(tk.END, f"  {project}")
         else:
+            log_info("No projects found")
             self.project_listbox.insert(tk.END, "  (ยังไม่มีโปรเจกต์)")
     
     def create_new_project(self):
         """สร้างโปรเจกต์ใหม่"""
+        log_debug("Opening create new project dialog")
         dialog = tk.Toplevel(self.root)
         dialog.title("สร้างโปรเจกต์ใหม่")
         dialog.geometry("500x200")
@@ -194,10 +199,12 @@ class ProjectSelector:
         """เปิดโปรเจกต์ที่เลือก"""
         selection = self.project_listbox.curselection()
         if not selection:
+            log_debug("No project selected to open")
             messagebox.showwarning("คำเตือน", "กรุณาเลือกโปรเจกต์")
             return
         
         project_name = self.project_listbox.get(selection[0]).strip()
+        log_info(f"Opening project: {project_name}")
         if project_name == "(ยังไม่มีโปรเจกต์)":
             return
         
