@@ -12,29 +12,33 @@ from nexus_god.core.logging_utils import log_error, log_debug, log_info
 class ProjectSetup:
     """หน้าจอ Setup สำหรับโปรเจกต์ใหม่"""
     
-    def __init__(self, root, data_manager: NexusDataManager):
+    def __init__(self, window, data_manager: NexusDataManager):
         log_debug("Initializing ProjectSetup")
-        self.root = root
+        self.window = window
         self.dm = data_manager
-        self.root.title("🌌 NEXUS GOD WRITER - ตั้งค่าโปรเจกต์ใหม่")
-        self.root.geometry("900x700")
-        self.root.minsize(700, 600)
-        self.root.configure(bg="#0f172a")
+        self.window.title("🌌 NEXUS GOD WRITER - ตั้งค่าโปรเจกต์ใหม่")
+        self.window.geometry("900x700")
+        self.window.minsize(700, 600)
+        self.window.configure(bg="#0f172a")
         
         # Center window
-        self.root.update_idletasks()
-        width = self.root.winfo_width()
-        height = self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.root.winfo_screenheight() // 2) - (height // 2)
-        self.root.geometry(f"{width}x{height}+{x}+{y}")
+        self.window.update_idletasks()
+        width = self.window.winfo_width()
+        height = self.window.winfo_height()
+        x = (self.window.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.window.winfo_screenheight() // 2) - (height // 2)
+        self.window.geometry(f"{width}x{height}+{x}+{y}")
         
+        if isinstance(self.window, tk.Toplevel):
+            self.window.transient(self.window.master)
+            self.window.grab_set()
+
         self.setup_complete = False
         self.build_ui()
     
     def build_ui(self):
         # Header
-        header = tk.Frame(self.root, bg="#0f172a", pady=30)
+        header = tk.Frame(self.window, bg="#0f172a", pady=30)
         header.pack(fill="x")
         
         tk.Label(header, text="🌌", font=("Segoe UI", 40), bg="#0f172a", fg="#38bdf8").pack()
@@ -44,7 +48,7 @@ class ProjectSetup:
                 bg="#0f172a", fg="#94a3b8").pack()
         
         # Main content
-        content = tk.Frame(self.root, bg="#0f172a", padx=50, pady=30)
+        content = tk.Frame(self.window, bg="#0f172a", padx=50, pady=30)
         content.pack(fill="both", expand=True)
         
         # Genre section
@@ -197,7 +201,10 @@ class ProjectSetup:
             log_info("Project setup completed successfully")
             
             self.setup_complete = True
-            self.root.quit()
+            if isinstance(self.window, tk.Tk):
+                self.window.quit()
+            else:
+                self.window.destroy()
         except Exception as e:
             log_error(f"Error completing setup: {e}")
             messagebox.showerror("ข้อผิดพลาด", f"ไม่สามารถบันทึกการตั้งค่าได้: {e}")
@@ -216,21 +223,33 @@ class ProjectSetup:
             self.dm.save_all()
             
             self.setup_complete = True
-            self.root.quit()
+            if isinstance(self.window, tk.Tk):
+                self.window.quit()
+            else:
+                self.window.destroy()
         except Exception as e:
             log_error(f"Error skipping setup: {e}")
             messagebox.showerror("ข้อผิดพลาด", f"เกิดข้อผิดพลาด: {e}")
     
     def run(self):
         """รัน setup screen"""
-        self.root.mainloop()
+        if isinstance(self.window, tk.Tk):
+            self.window.mainloop()
+        else:
+            self.window.wait_window()
         return self.setup_complete
 
 
-def show_project_setup(data_manager: NexusDataManager) -> bool:
+def show_project_setup(data_manager: NexusDataManager, parent=None) -> bool:
     """แสดงหน้าจอ Setup และคืนค่า True ถ้าสำเร็จ"""
-    root = tk.Tk()
-    setup = ProjectSetup(root, data_manager)
+    if parent:
+        window = tk.Toplevel(parent)
+    else:
+        window = tk.Tk()
+        
+    setup = ProjectSetup(window, data_manager)
     completed = setup.run()
-    root.destroy()
+    
+    if isinstance(window, tk.Tk):
+        window.destroy()
     return completed

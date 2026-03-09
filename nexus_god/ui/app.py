@@ -79,7 +79,7 @@ class NexusGodWriter:
             if self.dm.data.get("is_new_project", True):
                 log_info("New project detected, showing project setup")
                 from nexus_god.ui.project_setup import show_project_setup
-                if not show_project_setup(self.dm):
+                if not show_project_setup(self.dm, parent=self.root):
                     log_info("Project setup cancelled by user")
                     # User cancelled or error, exit
                     sys.exit(0)
