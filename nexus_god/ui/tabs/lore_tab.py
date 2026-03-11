@@ -37,70 +37,105 @@ class LoreTab:
         tk.Button(card, text="บันทึกข้อมูลตำนาน 💾", command=self.save_lore, bg=self.colors["success"], fg="white", font=("Segoe UI", 10, "bold"), bd=0, pady=10).pack(fill="x", pady=(10, 0))
 
     def build_timeline_section(self, parent):
-        tk.Label(parent, text="บันทึกเหตุการณ์สำคัญในประวัติศาสตร์ของโลกคุณ", font=("Segoe UI", 9), bg=parent["bg"], fg=self.colors["muted"]).pack(anchor="w", pady=(0, 10))
+        tk.Label(parent, text="บันทึกประวัติศาสตร์โลก แบ่งตามยุคสมัย (Era) และเหตุการณ์ (Event)", font=("Segoe UI", 9), bg=parent["bg"], fg=self.colors["muted"]).pack(anchor="w", pady=(0, 10))
         
-        # Simple text area for now, can be improved to a list later
-        self.timeline_text = self.create_input(parent, "เหตุการณ์สำคัญ (เรียงตามเวลา)", height=15)
+        # Structured timeline input
+        self.timeline_text = self.create_input(parent, "ประวัติศาสตร์ (รูปแบบ: [ยุค] ปี: เหตุการณ์ - รายละเอียด)", height=15)
         
         # Load existing data
         timeline_data = self.dm.data["world"].get("timeline", [])
         if isinstance(timeline_data, list):
-            self.timeline_text.insert("1.0", "\n".join(timeline_data))
-        else:
-            self.timeline_text.insert("1.0", str(timeline_data))
+            text = ""
+            for item in timeline_data:
+                if isinstance(item, dict):
+                    text += f"[{item.get('era', '')}] {item.get('year', '')}: {item.get('event', '')} - {item.get('description', '')}\n"
+                else:
+                    text += f"{item}\n"
+            self.timeline_text.insert("1.0", text.strip())
 
     def build_myth_section(self, parent):
-        self.myth_text = self.create_input(parent, "ตำนาน ความเชื่อ และเทพเจ้า", height=8)
-        self.magic_text = self.create_input(parent, "ระบบพลังและกฎเกณฑ์เหนือธรรมชาติ", height=8)
+        self.myth_text = self.create_input(parent, "ตำนาน ความเชื่อ และเทพเจ้า (Mythology)", height=6)
+        self.religion_text = self.create_input(parent, "ศาสนาและลัทธิต่างๆ (Religions)", height=6)
+        self.magic_text = self.create_input(parent, "ระบบพลังและกฎเกณฑ์เหนือธรรมชาติ (Magic Rules)", height=6)
         
         # Load existing data
-        self.myth_text.insert("1.0", self.dm.data["world"].get("lore", {}).get("mythology", ""))
+        lore = self.dm.data["world"].get("lore", {})
+        self.myth_text.insert("1.0", lore.get("mythology", ""))
+        self.religion_text.insert("1.0", lore.get("religions", ""))
         self.magic_text.insert("1.0", self.dm.data["world"].get("magic_system", ""))
 
     def build_faction_section(self, parent):
-        self.faction_text = self.create_input(parent, "รายละเอียดอาณาจักรและกลุ่มต่างๆ", height=15)
+        self.faction_text = self.create_input(parent, "รายละเอียดอาณาจักร กลุ่มอำนาจ และกองกำลัง (Factions)", height=15)
         
         # Load existing data
         factions = self.dm.data["world"].get("factions", {})
         if isinstance(factions, dict):
             text = ""
-            for name, desc in factions.items():
-                text += f"[{name}]\n{desc}\n\n"
+            for name, data in factions.items():
+                if isinstance(data, dict):
+                    text += f"[{name}]\nคำอธิบาย: {data.get('description', '')}\nผู้นำ: {data.get('leader', '')}\n\n"
+                else:
+                    text += f"[{name}]\n{data}\n\n"
             self.faction_text.insert("1.0", text.strip())
-        else:
-            self.faction_text.insert("1.0", str(factions))
 
     def save_lore(self):
         log_info("Saving lore data")
         
-        # Timeline
+        # Timeline Parsing
         timeline_raw = self.timeline_text.get("1.0", tk.END).strip()
-        self.dm.data["world"]["timeline"] = [line.strip() for line in timeline_raw.split("\n") if line.strip()]
+        timeline = []
+        for line in timeline_raw.split("\n"):
+            if not line.strip(): continue
+            # Simple parser for "[Era] Year: Event - Desc"
+            try:
+                era = ""
+                if line.startswith("[") and "]" in line:
+                    era = line[1:line.find("]")]
+                    line = line[line.find("]")+1:].strip()
+                
+                year = ""
+                if ":" in line:
+                    year = line.split(":", 1)[0].strip()
+                    line = line.split(":", 1)[1].strip()
+                
+                event = line
+                desc = ""
+                if " - " in line:
+                    event = line.split(" - ", 1)[0].strip()
+                    desc = line.split(" - ", 1)[1].strip()
+                
+                timeline.append({"era": era, "year": year, "event": event, "description": desc})
+            except:
+                timeline.append(line.strip())
         
-        # Mythology & Magic
+        self.dm.data["world"]["timeline"] = timeline
+        
+        # Mythology, Religion & Magic
         if "lore" not in self.dm.data["world"]: self.dm.data["world"]["lore"] = {}
         self.dm.data["world"]["lore"]["mythology"] = self.myth_text.get("1.0", tk.END).strip()
+        self.dm.data["world"]["lore"]["religions"] = self.religion_text.get("1.0", tk.END).strip()
         self.dm.data["world"]["magic_system"] = self.magic_text.get("1.0", tk.END).strip()
         
-        # Factions (Simple parsing)
+        # Factions Parsing
         faction_raw = self.faction_text.get("1.0", tk.END).strip()
-        # This is a simple parser for [Kingdom Name] format
         factions = {}
         current_faction = None
-        current_desc = []
+        current_data = {}
         
         for line in faction_raw.split("\n"):
             if line.startswith("[") and line.endswith("]"):
-                if current_faction:
-                    factions[current_faction] = "\n".join(current_desc).strip()
+                if current_faction: factions[current_faction] = current_data
                 current_faction = line[1:-1]
-                current_desc = []
+                current_data = {"description": "", "leader": ""}
+            elif ":" in line:
+                key, val = line.split(":", 1)
+                if "คำอธิบาย" in key: current_data["description"] = val.strip()
+                elif "ผู้นำ" in key: current_data["leader"] = val.strip()
+                else: current_data["description"] += line + "\n"
             else:
-                current_desc.append(line)
+                if current_faction: current_data["description"] += line + "\n"
         
-        if current_faction:
-            factions[current_faction] = "\n".join(current_desc).strip()
-            
+        if current_faction: factions[current_faction] = current_data
         self.dm.data["world"]["factions"] = factions
         
         self.dm.save_all()

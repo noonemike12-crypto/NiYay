@@ -61,6 +61,14 @@ class WizardTab:
                 
                 context = f"Genre: {self.dm.data.get('project_genre', 'ทั่วไป')}\n"
                 context += f"World: {json.dumps(self.dm.data['world'], ensure_ascii=False)}\n"
+                context += f"Facts: {json.dumps(self.dm.data.get('facts', []), ensure_ascii=False)}\n"
+                
+                # Include dynamic modules context
+                modules = self.dm.data.get("modules", {})
+                for mod_id, mod_config in modules.items():
+                    entries = mod_config.get("entries", [])
+                    if entries:
+                        context += f"Module {mod_id}: {json.dumps(entries, ensure_ascii=False)}\n"
                 
                 prompts = {
                     "synopsis": "ช่วยร่างเรื่องย่อ (Synopsis) ที่น่าตื่นเต้นสำหรับนิยายเรื่องนี้",

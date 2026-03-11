@@ -41,61 +41,89 @@ class MemoryTab:
         self.refresh_memory_list()
 
     def refresh_memory_list(self):
-        log_debug("Refreshing memory listbox")
+        log_debug("Refreshing facts listbox")
         self.memory_listbox.delete(0, tk.END)
-        memory = self.dm.data.get("memory", {})
-        for key in memory:
-            self.memory_listbox.insert(tk.END, key)
+        facts = self.dm.data.get("facts", [])
+        for fact in facts:
+            if isinstance(fact, dict):
+                display = fact.get("id") or fact.get("content")[:20] + "..."
+                self.memory_listbox.insert(tk.END, display)
 
     def on_memory_select(self, event):
         sel = self.memory_listbox.curselection()
         if not sel: return
-        key = self.memory_listbox.get(sel[0])
-        self.build_memory_form(key)
+        idx = sel[0]
+        self.build_memory_form(idx)
 
-    def build_memory_form(self, key):
+    def build_memory_form(self, idx):
         for w in self.memory_form.winfo_children(): w.destroy()
         
-        val = self.dm.data.get("memory", {}).get(key, "")
+        fact = self.dm.data.get("facts", [])[idx]
         
-        tk.Label(self.memory_form, text=f"ความจำ: {key}", font=("Segoe UI", 12, "bold"), bg=self.memory_form["bg"], fg=self.colors["accent"]).pack(anchor="w", pady=(0, 15))
+        tk.Label(self.memory_form, text=f"ข้อเท็จจริง (Fact) #{idx+1}", font=("Segoe UI", 12, "bold"), bg=self.memory_form["bg"], fg=self.colors["accent"]).pack(anchor="w", pady=(0, 15))
         
-        self.mem_key_input = self.create_input(self.memory_form, "หัวข้อความจำ")
-        self.mem_key_input.insert(0, key)
+        self.mem_id_input = self.create_input(self.memory_form, "ID/หัวข้อ")
+        self.mem_id_input.insert(0, fact.get("id", ""))
         
-        self.mem_val_input = self.create_input(self.memory_form, "รายละเอียด", 10)
-        self.mem_val_input.insert("1.0", val)
+        self.mem_content_input = self.create_input(self.memory_form, "เนื้อหา/ข้อเท็จจริง", 5)
+        self.mem_content_input.insert("1.0", fact.get("content", ""))
         
-        tk.Button(self.memory_form, text="บันทึกความจำ 💾", command=lambda: self.save_memory(key), bg=self.colors["success"], fg="white", bd=0, pady=10).pack(fill="x", pady=20)
+        # Category and Importance
+        row = tk.Frame(self.memory_form, bg=self.memory_form["bg"])
+        row.pack(fill="x", pady=5)
+        
+        tk.Label(row, text="หมวดหมู่:", bg=row["bg"], fg=self.colors["muted"]).pack(side="left")
+        self.mem_cat_input = tk.Entry(row, bg=self.colors["input"], fg="white", bd=0)
+        self.mem_cat_input.insert(0, fact.get("category", "ทั่วไป"))
+        self.mem_cat_input.pack(side="left", padx=10, fill="x", expand=True)
+        
+        tk.Label(row, text="ความสำคัญ:", bg=row["bg"], fg=self.colors["muted"]).pack(side="left")
+        self.mem_imp_input = ttk.Combobox(row, values=["ต่ำ", "ปานกลาง", "สูง", "วิกฤต"], width=10)
+        self.mem_imp_input.set(fact.get("importance", "ปานกลาง"))
+        self.mem_imp_input.pack(side="left", padx=10)
+        
+        tk.Button(self.memory_form, text="บันทึกข้อเท็จจริง 💾", command=lambda: self.save_memory(idx), bg=self.colors["success"], fg="white", bd=0, pady=10).pack(fill="x", pady=20)
 
     def add_memory(self):
-        key = filedialog.askstring("เพิ่มความจำ", "กรุณาใส่หัวข้อความจำ (เช่น ชื่อเมือง, ตำนาน):")
+        from tkinter import simpledialog
+        key = simpledialog.askstring("เพิ่มความจำ", "กรุณาใส่หัวข้อความจำ (เช่น ชื่อเมือง, ตำนาน):")
         if key:
-            if "memory" not in self.dm.data: self.dm.data["memory"] = {}
-            self.dm.data["memory"][key] = ""
+            if "facts" not in self.dm.data: self.dm.data["facts"] = []
+            self.dm.data["facts"].append({
+                "id": key,
+                "content": "",
+                "category": "ทั่วไป",
+                "importance": "ปานกลาง"
+            })
             self.refresh_memory_list()
             self.dm.save_all()
 
     def delete_memory(self):
         sel = self.memory_listbox.curselection()
         if not sel: return
-        key = self.memory_listbox.get(sel[0])
-        if messagebox.askyesno("ยืนยัน", f"ลบความจำ '{key}'?"):
-            del self.dm.data["memory"][key]
+        idx = sel[0]
+        if messagebox.askyesno("ยืนยัน", "ลบข้อเท็จจริงนี้?"):
+            self.dm.data["facts"].pop(idx)
             self.refresh_memory_list()
             for w in self.memory_form.winfo_children(): w.destroy()
             self.dm.save_all()
 
-    def save_memory(self, old_key):
-        new_key = self.mem_key_input.get().strip()
-        new_val = self.mem_val_input.get("1.0", tk.END).strip()
+    def save_memory(self, idx):
+        new_id = self.mem_id_input.get().strip()
+        new_content = self.mem_content_input.get("1.0", tk.END).strip()
+        new_cat = self.mem_cat_input.get().strip()
+        new_imp = self.mem_imp_input.get()
         
-        if "memory" not in self.dm.data: self.dm.data["memory"] = {}
+        self.dm.data["facts"][idx] = {
+            "id": new_id,
+            "content": new_content,
+            "category": new_cat,
+            "importance": new_imp
+        }
         
-        if new_key != old_key:
-            del self.dm.data["memory"][old_key]
+        # Update compatibility memory dict
+        self.dm.data["memory"] = {f["id"]: f["content"] for f in self.dm.data["facts"] if isinstance(f, dict) and "id" in f}
         
-        self.dm.data["memory"][new_key] = new_val
         self.dm.save_all()
         self.refresh_memory_list()
-        messagebox.showinfo("สำเร็จ", "บันทึกความจำแล้ว")
+        messagebox.showinfo("สำเร็จ", "บันทึกข้อเท็จจริงแล้ว")

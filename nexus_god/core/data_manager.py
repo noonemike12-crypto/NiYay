@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
+from datetime import datetime
 from tkinter import messagebox
 
 from .logging_utils import log_error, log_debug, log_info
@@ -12,102 +13,93 @@ class NexusDataManager:
     def __init__(self):
         log_debug("Initializing NexusDataManager")
         self.data_dir = Path("nexus_god_data")
+        self.projects_dir = self.data_dir / "projects"
         self.data_dir.mkdir(exist_ok=True)
+        self.projects_dir.mkdir(exist_ok=True)
+        
         self.config_file = self.data_dir / "config.json"
         self.config = self.load_config()
 
         # Current project name
         self.current_project = self.config.get("last_project", "Default_Story")
-        self.project_file = self.data_dir / f"project_{self.current_project}.json"
+        self.project_path = self.projects_dir / self.current_project
+        self.project_path.mkdir(exist_ok=True)
+        
+        # Files within project
+        self.metadata_file = self.project_path / "metadata.json"
+        self.world_file = self.project_path / "world.json"
+        self.facts_file = self.project_path / "facts.json"
+        self.modules_dir = self.project_path / "modules"
+        self.modules_dir.mkdir(exist_ok=True)
+        self.story_dir = self.project_path / "story"
+        self.story_dir.mkdir(exist_ok=True)
+        
         self.data = self.load_data()
 
     def load_data(self):
         log_debug(f"Loading data for project: {self.current_project}")
-        default_data = {
-            "world": {
-                "name": "",
-                "theme": "",
-                "geography": "",
-                "climate": "",
-                "rules": "",
-                "genre": "ทั่วไป",
-                "culture": "",
-                "sensory": "",
-                "synopsis": "",
-                "timeline": [], # Key historical events
-                "lore": {}, # Mythology, legends, etc.
-                "factions": {}, # Groups, kingdoms, organizations
-                "magic_system": "", # Detailed power rules
-            },
-            "characters": {},
-            "plot": {"act1": "", "act2": "", "act3": "", "key_events": "", "ending": ""},
-            "chapters": {},
-            "memory": {},
-            "items": {},
-            "style": "มาตรฐาน",
-            "chat_history": [],
-            "creation_phase": "synopsis",  # phases: synopsis, planning, world, characters, story
-            "project_genre": "",  # แนวเรื่องของโปรเจกต์
-            "character_fields_config": [],  # Custom fields configuration for this project
-            "is_new_project": True,  # Flag สำหรับโปรเจกต์ใหม่
+        
+        # 1. Metadata
+        metadata = {
+            "name": self.current_project, 
+            "genre": "ทั่วไป", 
+            "theme": "", 
+            "world_type": "fantasy", 
+            "created_at": str(datetime.now()), 
+            "enabled_tabs": ["wizard", "chat", "world", "lore", "chars", "items", "plot", "editor", "memory", "review", "export", "settings"],
+            "creation_phase": "synopsis"
         }
+        if self.metadata_file.exists():
+            with open(self.metadata_file, "r", encoding="utf-8") as f:
+                metadata.update(json.load(f))
+        
+        # 2. World
+        world = {"name": "", "theme": "", "geography": "", "climate": "", "rules": "", "genre": "ทั่วไป", "culture": "", "sensory": "", "synopsis": "", "timeline": [], "lore": {}, "factions": {}, "magic_system": ""}
+        if self.world_file.exists():
+            with open(self.world_file, "r", encoding="utf-8") as f:
+                world.update(json.load(f))
+        
+        # 3. Facts
+        facts = []
+        if self.facts_file.exists():
+            with open(self.facts_file, "r", encoding="utf-8") as f:
+                facts = json.load(f)
+        
+        # 4. Modules
+        modules = {}
+        for f in self.modules_dir.glob("*.json"):
+            with open(f, "r", encoding="utf-8") as m_file:
+                modules[f.stem] = json.load(m_file)
+        
+        # 5. Story (Chapters)
+        chapters = {}
+        chapters_file = self.story_dir / "chapters.json"
+        if chapters_file.exists():
+            with open(chapters_file, "r", encoding="utf-8") as f:
+                chapters = json.load(f)
+        
+        # 6. Plot
+        plot = {"act1": "", "act2": "", "act3": "", "key_events": "", "ending": ""}
+        plot_file = self.project_path / "plot.json"
+        if plot_file.exists():
+            with open(plot_file, "r", encoding="utf-8") as f:
+                plot.update(json.load(f))
 
-        if self.project_file.exists():
-            try:
-                with open(self.project_file, "r", encoding="utf-8") as f:
-                    d = json.load(f)
-                    # Migration + safety
-                    if not isinstance(d, dict):
-                        return default_data
-
-                    if "world" not in d:
-                        d["world"] = default_data["world"]
-                    if "characters" not in d:
-                        d["characters"] = {}
-                    if "plot" not in d:
-                        d["plot"] = default_data["plot"]
-                    if "chapters" not in d:
-                        d["chapters"] = {}
-                    if "memory" not in d:
-                        d["memory"] = {}
-                    if "items" not in d:
-                        d["items"] = {}
-                    if "chat_history" not in d:
-                        d["chat_history"] = []
-                    if "creation_phase" not in d:
-                        d["creation_phase"] = "synopsis"
-
-                    # Safety for list vs dict
-                    if isinstance(d.get("chapters"), list): d["chapters"] = {}
-                    if isinstance(d.get("characters"), list): d["characters"] = {}
-                    if isinstance(d.get("memory"), list): d["memory"] = {}
-                    if isinstance(d.get("items"), list): d["items"] = {}
-                    if "memory_bank" in d and not d.get("memory"):
-                        if isinstance(d["memory_bank"], dict): d["memory"] = d["memory_bank"]
-                        else: d["memory"] = {}
-
-                    # Sub-fields migration
-                    for k, v in default_data["world"].items():
-                        if k not in d["world"]:
-                            d["world"][k] = v
-
-                    if "style" not in d:
-                        d["style"] = "มาตรฐาน"
-                    if "project_genre" not in d:
-                        d["project_genre"] = ""
-                    if "character_fields_config" not in d:
-                        d["character_fields_config"] = []
-                    if "is_new_project" not in d:
-                        d["is_new_project"] = False
-                    return d
-            except Exception as e:
-                log_error(f"Error loading project data: {e}")
-                messagebox.showerror(
-                    "ข้อผิดพลาด",
-                    f"ไม่สามารถโหลดข้อมูลโปรเจกต์ได้: {e}\nระบบจะใช้ข้อมูลเริ่มต้นแทน",
-                )
-
-        return default_data
+        # Combine into a single data object for the app to use (maintaining compatibility)
+        return {
+            "metadata": metadata,
+            "world": world,
+            "facts": facts,
+            "modules": modules,
+            "chapters": chapters,
+            "plot": plot,
+            "characters": modules.get("characters", {}), # Compatibility
+            "items": modules.get("items", {}), # Compatibility
+            "memory": {f["id"]: f["content"] for f in facts if isinstance(f, dict) and "id" in f}, # Compatibility
+            "enabled_tabs": metadata.get("enabled_tabs", []),
+            "creation_phase": metadata.get("creation_phase", "synopsis"),
+            "project_genre": metadata.get("genre", ""),
+        }
 
     def load_config(self):
         log_debug("Loading configuration")
@@ -153,27 +145,45 @@ class NexusDataManager:
 
     def save_all(self):
         # Run saving in a background thread to prevent UI hang
-        log_debug("Initiating save_all")
+        log_debug("Initiating save_all (Multi-file structure)")
         try:
-            data_copy = json.loads(json.dumps(self.data))  # Simple deep copy
+            data = self.data
             config_copy = json.loads(json.dumps(self.config))
 
             def task():
                 try:
-                    # Save Project Data (No indent for speed and size)
-                    with open(self.project_file, "w", encoding="utf-8") as f:
-                        json.dump(data_copy, f, ensure_ascii=False)
-
+                    # Save Metadata
+                    with open(self.metadata_file, "w", encoding="utf-8") as f:
+                        json.dump(data["metadata"], f, ensure_ascii=False, indent=2)
+                    
+                    # Save World
+                    with open(self.world_file, "w", encoding="utf-8") as f:
+                        json.dump(data["world"], f, ensure_ascii=False, indent=2)
+                    
+                    # Save Facts
+                    with open(self.facts_file, "w", encoding="utf-8") as f:
+                        json.dump(data["facts"], f, ensure_ascii=False, indent=2)
+                    
+                    # Save Modules
+                    for mod_id, mod_data in data["modules"].items():
+                        mod_file = self.modules_dir / f"{mod_id}.json"
+                        with open(mod_file, "w", encoding="utf-8") as f:
+                            json.dump(mod_data, f, ensure_ascii=False, indent=2)
+                    
+                    # Save Story
+                    with open(self.story_dir / "chapters.json", "w", encoding="utf-8") as f:
+                        json.dump(data["chapters"], f, ensure_ascii=False, indent=2)
+                    
+                    # Save Plot
+                    with open(self.project_path / "plot.json", "w", encoding="utf-8") as f:
+                        json.dump(data["plot"], f, ensure_ascii=False, indent=2)
+                        
                     # Save Config
                     with open(self.config_file, "w", encoding="utf-8") as f:
-                        json.dump(config_copy, f, ensure_ascii=False)
-
-                    # Create a backup of project data
-                    backup_file = self.data_dir / f"backup_{self.current_project}.json"
-                    with open(backup_file, "w", encoding="utf-8") as f:
-                        json.dump(data_copy, f, ensure_ascii=False)
+                        json.dump(config_copy, f, ensure_ascii=False, indent=2)
+                        
                 except Exception as e:
-                    print(f"ERROR: Async Save Error: {e}")
+                    log_error(f"Async Save Error: {e}")
 
             threading.Thread(target=task, daemon=True).start()
         except Exception as e:
@@ -208,9 +218,7 @@ class NexusDataManager:
 
     def list_projects(self):
         try:
-            return [
-                f.stem.replace("project_", "") for f in self.data_dir.glob("project_*.json")
-            ]
+            return [d.name for d in self.projects_dir.iterdir() if d.is_dir()]
         except Exception as e:
             log_error(f"Error listing projects: {e}")
             return ["Default_Story"]
@@ -221,7 +229,18 @@ class NexusDataManager:
             self.save_all()
             self.current_project = name
             self.config["last_project"] = name
-            self.project_file = self.data_dir / f"project_{name}.json"
+            
+            self.project_path = self.projects_dir / name
+            self.project_path.mkdir(exist_ok=True)
+            
+            self.metadata_file = self.project_path / "metadata.json"
+            self.world_file = self.project_path / "world.json"
+            self.facts_file = self.project_path / "facts.json"
+            self.modules_dir = self.project_path / "modules"
+            self.modules_dir.mkdir(exist_ok=True)
+            self.story_dir = self.project_path / "story"
+            self.story_dir.mkdir(exist_ok=True)
+            
             self.data = self.load_data()
             self.save_all()
         except Exception as e:

@@ -9,3 +9,4 @@ from .chat_tab import ChatTab
 from .characters_tab import CharactersTab
 from .editor_tab import EditorTab
 from .wizard_tab import WizardTab
+from .dynamic_module_tab import DynamicModuleTab

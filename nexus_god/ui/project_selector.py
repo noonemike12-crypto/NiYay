@@ -232,14 +232,15 @@ class ProjectSelector:
             return
         
         try:
-            project_file = self.dm.data_dir / f"project_{project_name}.json"
-            if project_file.exists():
-                project_file.unlink()
+            import shutil
+            project_dir = self.dm.projects_dir / project_name
+            if project_dir.exists() and project_dir.is_dir():
+                shutil.rmtree(project_dir)
             
-            # Also delete backup
-            backup_file = self.dm.data_dir / f"backup_{project_name}.json"
-            if backup_file.exists():
-                backup_file.unlink()
+            # Legacy file support
+            legacy_file = self.dm.data_dir / f"project_{project_name}.json"
+            if legacy_file.exists():
+                legacy_file.unlink()
             
             messagebox.showinfo("สำเร็จ", f"ลบโปรเจกต์ '{project_name}' เรียบร้อยแล้ว")
             self.refresh_project_list()

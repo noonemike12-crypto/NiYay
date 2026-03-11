@@ -17,7 +17,8 @@ from nexus_god.core.data_manager import NexusDataManager
 from nexus_god.core.logging_utils import configure_logging, install_thread_excepthook, log_error, log_debug, log_info
 from nexus_god.ui.tabs import (
     WorldTab, PlotTab, MemoryTab, ItemsTab, SettingsTab, 
-    ExportTab, ReviewTab, ChatTab, CharactersTab, EditorTab, WizardTab
+    ExportTab, ReviewTab, ChatTab, CharactersTab, EditorTab, WizardTab,
+    DynamicModuleTab
 )
 
 configure_logging()
@@ -97,6 +98,56 @@ class NexusGodWriter:
         if hasattr(self, 'sidebar') and self.sidebar.winfo_exists():
             self.sidebar.config(width=280 if width >= 1200 else 250)
 
+    def setup_sidebar_buttons(self):
+        for w in self.nav_frame.winfo_children(): w.destroy()
+        self.nav_btns = {}
+        
+        all_nav_items = [
+            ("wizard", "✨ วิถีแห่งสวรรค์ (Guided)"), 
+            ("chat", "💬 สนทนาทวยเทพ"),
+            ("world", "🌍 กำเนิดโลก"), 
+            ("lore", "📜 ตำนานและประวัติศาสตร์"),
+            ("chars", "👤 โรงหล่อตัวละคร"),
+            ("items", "⚔️ คลังไอเทม"), 
+            ("plot", "📜 โครงเรื่องสวรรค์"),
+            ("editor", "📝 แก้ไขเนื้อเรื่อง"), 
+            ("memory", "🧠 ธนาคารความจำ"),
+            ("review", "🔍 ตรวจสอบคัมภีร์"), 
+            ("export", "🚀 AI และส่งออก"),
+            ("settings", "⚙️ ตั้งค่า")
+        ]
+        
+        enabled = self.dm.data.get("enabled_tabs", [])
+        # Core tabs that should always be present if not explicitly disabled
+        core_tabs = ["chars", "lore", "settings"]
+        
+        for key, label in all_nav_items:
+            if key in enabled or key in core_tabs:
+                btn = tk.Button(self.nav_frame, text=f"  {label}", font=("Segoe UI", 10), bg=self.colors["sidebar"], fg=self.colors["muted"], activebackground=self.colors["accent"], activeforeground="black", bd=0, anchor="w", padx=20, pady=10, cursor="hand2", command=lambda k=key: self.switch_tab(k))
+                btn.pack(fill="x", padx=10, pady=1)
+                self.nav_btns[key] = btn
+                
+                if key == self.current_tab:
+                    btn.config(fg=self.colors["accent"], bg=self.colors["card"])
+        
+        # Dynamic Modules from data
+        modules = self.dm.data.get("modules", {})
+        for mod_id, mod_config in modules.items():
+            if mod_id in ["characters", "items"]: continue # Already handled by core tabs for now
+            
+            label = mod_config.get("display_name", mod_id.capitalize())
+            icon = mod_config.get("icon", "📦")
+            
+            btn = tk.Button(self.nav_frame, text=f"  {icon} {label}", font=("Segoe UI", 10), bg=self.colors["sidebar"], fg=self.colors["muted"], activebackground=self.colors["accent"], activeforeground="black", bd=0, anchor="w", padx=20, pady=10, cursor="hand2", command=lambda k=mod_id: self.switch_tab(f"mod_{k}"))
+            btn.pack(fill="x", padx=10, pady=1)
+            self.nav_btns[f"mod_{mod_id}"] = btn
+            
+            if self.current_tab == f"mod_{mod_id}":
+                btn.config(fg=self.colors["accent"], bg=self.colors["card"])
+
+    def refresh_sidebar(self):
+        self.setup_sidebar_buttons()
+
     def build_card(self, parent, title):
         card = tk.Frame(parent, bg=self.colors["card"], bd=1, relief="solid", highlightbackground=self.colors["border"], highlightthickness=1)
         card.pack(fill="both", expand=True, padx=10, pady=10)
@@ -160,24 +211,9 @@ class NexusGodWriter:
         self.prog_label.pack(anchor="e")
 
         self.nav_btns = {}
-        nav_items = [
-            ("wizard", "✨ วิถีแห่งสวรรค์ (Guided)"), 
-            ("chat", "💬 สนทนาทวยเทพ"),
-            ("world", "🌍 กำเนิดโลก"), 
-            ("lore", "📜 ตำนานและประวัติศาสตร์"),
-            ("chars", "👤 โรงหล่อตัวละคร"),
-            ("items", "⚔️ คลังไอเทม"), 
-            ("plot", "📜 โครงเรื่องสวรรค์"),
-            ("editor", "📝 แก้ไขเนื้อเรื่อง"), 
-            ("memory", "🧠 ธนาคารความจำ"),
-            ("review", "🔍 ตรวจสอบคัมภีร์"), 
-            ("export", "🚀 AI และส่งออก"),
-            ("settings", "⚙️ ตั้งค่า")
-        ]
-        for key, label in nav_items:
-            btn = tk.Button(self.sidebar, text=f"  {label}", font=("Segoe UI", 10), bg=self.colors["sidebar"], fg=self.colors["muted"], activebackground=self.colors["accent"], activeforeground="black", bd=0, anchor="w", padx=20, pady=10, cursor="hand2", command=lambda k=key: self.switch_tab(k))
-            btn.pack(fill="x", padx=10, pady=1)
-            self.nav_btns[key] = btn
+        self.nav_frame = tk.Frame(self.sidebar, bg=self.colors["sidebar"])
+        self.nav_frame.pack(fill="both", expand=True)
+        self.setup_sidebar_buttons()
 
         qa_frame = tk.Frame(self.sidebar, bg=self.colors["sidebar"], pady=10)
         qa_frame.pack(fill="x", padx=10)
@@ -208,7 +244,7 @@ class NexusGodWriter:
         elif tab_key == "plot": PlotTab(self.container, self.dm, self.colors, self.build_card, self.create_input).build()
         elif tab_key == "memory": MemoryTab(self.container, self.dm, self.colors, self.build_card, self.create_input).build()
         elif tab_key == "items": ItemsTab(self.container, self.dm, self.colors, self.build_card, self.create_input).build()
-        elif tab_key == "settings": SettingsTab(self.container, self.dm, self.colors, self.build_card, self.create_input).build()
+        elif tab_key == "settings": SettingsTab(self.container, self.dm, self.colors, self.build_card, self.create_input, self.refresh_sidebar).build()
         elif tab_key == "export": ExportTab(self.container, self.dm, self.colors, self.build_card).build()
         elif tab_key == "review": 
             self.review_tab = ReviewTab(self.container, self.dm, self.colors, self.build_card, self.ai_service, self.get_editor_content, self.get_chapter_name, self.set_status)
@@ -219,6 +255,9 @@ class NexusGodWriter:
             self.editor_tab = EditorTab(self.container, self.dm, self.colors, self.build_card, self.ai_service, self.set_status)
             self.editor_tab.build()
         elif tab_key == "wizard": WizardTab(self.container, self.dm, self.colors, self.build_card, self.ai_service, self.apply_chat_update, self.set_status, self.update_progress).build()
+        elif tab_key.startswith("mod_"):
+            mod_id = tab_key.replace("mod_", "")
+            DynamicModuleTab(self.container, self.dm, self.colors, self.build_card, self.create_input, mod_id).build()
         
         self.update_progress()
 
