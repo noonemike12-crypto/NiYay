@@ -40,11 +40,50 @@ class EditorTab:
         tk.Button(ai_toolbar, text="🪄 ขัดเกลา", command=self.ai_improve_text, bg=self.colors["warning"], fg="black", bd=0, padx=10, font=("Segoe UI", 8)).pack(side="left", padx=2)
         tk.Button(ai_toolbar, text="🎬 แนะนำฉาก", command=self.ai_suggest_scene, bg=self.colors["sidebar"], fg=self.colors["text"], bd=0, padx=10, font=("Segoe UI", 8)).pack(side="left", padx=2)
 
-        # Editor
-        self.editor_text = scrolledtext.ScrolledText(card, bg=self.colors["input"], fg=self.colors["text"], font=("Segoe UI", 12), bd=0, wrap=tk.WORD, insertbackground="white", padx=20, pady=20)
+        # Main Editor Area with Sidebar
+        main_editor_frame = tk.Frame(card, bg=card["bg"])
+        main_editor_frame.pack(fill="both", expand=True)
+
+        # Left: Editor
+        editor_frame = tk.Frame(main_editor_frame, bg=card["bg"])
+        editor_frame.pack(side="left", fill="both", expand=True)
+
+        self.editor_text = scrolledtext.ScrolledText(editor_frame, bg=self.colors["input"], fg=self.colors["text"], font=("Segoe UI", 12), bd=0, wrap=tk.WORD, insertbackground="white", padx=20, pady=20)
         self.editor_text.pack(fill="both", expand=True)
+
+        # Right: Lore Sidebar
+        self.sidebar_frame = tk.Frame(main_editor_frame, bg=self.colors["sidebar"], width=300)
+        self.sidebar_frame.pack(side="right", fill="y", padx=(15, 0))
+        self.sidebar_frame.pack_propagate(False)
+
+        tk.Label(self.sidebar_frame, text="📖 ข้อมูลอ้างอิง (Lore)", font=("Segoe UI", 10, "bold"), bg=self.colors["sidebar"], fg=self.colors["accent"], pady=10).pack(fill="x")
         
-        # Load first chapter
+        # Sidebar Tabs
+        side_tabs = ttk.Notebook(self.sidebar_frame)
+        side_tabs.pack(fill="both", expand=True)
+
+        # 1. World Info
+        world_side = tk.Frame(side_tabs, bg=self.colors["card"])
+        side_tabs.add(world_side, text="🌍 โลก")
+        self.world_info_text = scrolledtext.ScrolledText(world_side, bg=self.colors["card"], fg=self.colors["text"], font=("Segoe UI", 9), bd=0, wrap=tk.WORD)
+        self.world_info_text.pack(fill="both", expand=True)
+
+        # 2. Characters Info
+        char_side = tk.Frame(side_tabs, bg=self.colors["card"])
+        side_tabs.add(char_side, text="👤 ตัวละคร")
+        self.char_info_text = scrolledtext.ScrolledText(char_side, bg=self.colors["card"], fg=self.colors["text"], font=("Segoe UI", 9), bd=0, wrap=tk.WORD)
+        self.char_info_text.pack(fill="both", expand=True)
+
+        # 3. Lore Info
+        lore_side = tk.Frame(side_tabs, bg=self.colors["card"])
+        side_tabs.add(lore_side, text="📜 ตำนาน")
+        self.lore_info_text = scrolledtext.ScrolledText(lore_side, bg=self.colors["card"], fg=self.colors["text"], font=("Segoe UI", 9), bd=0, wrap=tk.WORD)
+        self.lore_info_text.pack(fill="both", expand=True)
+
+        tk.Button(self.sidebar_frame, text="🔄 รีเฟรชข้อมูล", command=self.refresh_lore_sidebar, bg=self.colors["sidebar"], fg=self.colors["muted"], bd=0, font=("Segoe UI", 8)).pack(fill="x", pady=5)
+
+        # Load first chapter and sidebar
+        self.refresh_lore_sidebar()
         if self.dm.data["chapters"]:
             first_key = list(self.dm.data["chapters"].keys())[0]
             self.chapter_selector.set(first_key)
@@ -52,6 +91,43 @@ class EditorTab:
         
         self.editor_status = tk.Label(card, text="พร้อมใช้งาน", font=("Segoe UI", 8), bg=card["bg"], fg=self.colors["muted"])
         self.editor_status.pack(anchor="e")
+
+    def refresh_lore_sidebar(self):
+        log_debug("Refreshing lore sidebar in editor")
+        
+        # World Info
+        world = self.dm.data["world"]
+        world_text = f"ชื่อโลก: {world.get('name', 'N/A')}\n"
+        world_text += f"แนวเรื่อง: {world.get('genre', 'N/A')}\n"
+        world_text += f"ธีม: {world.get('theme', 'N/A')}\n\n"
+        world_text += f"ภูมิศาสตร์:\n{world.get('geography', 'N/A')}\n\n"
+        world_text += f"กฎเกณฑ์:\n{world.get('rules', 'N/A')}"
+        
+        self.world_info_text.delete("1.0", tk.END)
+        self.world_info_text.insert("1.0", world_text)
+
+        # Characters Info
+        chars = self.dm.data.get("characters", {})
+        char_text = ""
+        for name, data in chars.items():
+            char_text += f"[{name}]\n"
+            char_text += f"บทบาท: {data.get('role', 'N/A')}\n"
+            char_text += f"บุคลิก: {data.get('personality', 'N/A')}\n\n"
+        
+        self.char_info_text.delete("1.0", tk.END)
+        self.char_info_text.insert("1.0", char_text or "ยังไม่มีข้อมูลตัวละคร")
+
+        # Lore Info
+        lore = world.get("lore", {})
+        lore_text = f"ตำนาน:\n{lore.get('mythology', 'N/A')}\n\n"
+        lore_text += f"ระบบพลัง:\n{world.get('magic_system', 'N/A')}\n\n"
+        lore_text += "อาณาจักร:\n"
+        factions = world.get("factions", {})
+        for f_name in factions:
+            lore_text += f"- {f_name}\n"
+        
+        self.lore_info_text.delete("1.0", tk.END)
+        self.lore_info_text.insert("1.0", lore_text)
 
     def on_chapter_change(self, event):
         name = self.chapter_selector.get()

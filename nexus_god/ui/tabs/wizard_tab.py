@@ -39,10 +39,11 @@ class WizardTab:
         
         messages = {
             "synopsis": "ขั้นตอนที่ 1: กำหนดแก่นเรื่องและเรื่องย่อ (Synopsis)",
-            "planning": "ขั้นตอนที่ 2: วางโครงสร้างเหตุการณ์สำคัญ (Plot Planning)",
-            "world": "ขั้นตอนที่ 3: สร้างรายละเอียดของโลกและกฎเกณฑ์ (World Building)",
+            "world": "ขั้นตอนที่ 2: สร้างรายละเอียดของโลกและภูมิศาสตร์ (World Genesis)",
+            "lore": "ขั้นตอนที่ 3: สร้างตำนาน ประวัติศาสตร์ และกฎของโลก (Lore & Rules)",
             "characters": "ขั้นตอนที่ 4: ออกแบบตัวละครและบทบาท (Character Design)",
-            "story": "ขั้นตอนที่ 5: เริ่มต้นเขียนเนื้อเรื่องบทแรก (Writing)"
+            "planning": "ขั้นตอนที่ 5: วางโครงสร้างเหตุการณ์สำคัญ (Plot Planning)",
+            "story": "ขั้นตอนที่ 6: เริ่มต้นเขียนเนื้อเรื่องบทแรก (Writing)"
         }
         self.wizard_msg.config(text=messages.get(phase, "ขั้นตอนการสร้างสรรค์"))
         self.update_progress()
@@ -63,9 +64,10 @@ class WizardTab:
                 
                 prompts = {
                     "synopsis": "ช่วยร่างเรื่องย่อ (Synopsis) ที่น่าตื่นเต้นสำหรับนิยายเรื่องนี้",
-                    "planning": "ช่วยวางโครงเรื่อง 3 องก์ (Act 1, 2, 3) และจุดหักมุมที่น่าสนใจ",
-                    "world": "ช่วยขยายรายละเอียดของโลก กฎพลัง และสถานที่สำคัญ",
+                    "world": "ช่วยออกแบบภูมิศาสตร์ สถานที่สำคัญ และบรรยากาศของโลกนี้",
+                    "lore": "ช่วยสร้างตำนานเทพเจ้า ประวัติศาสตร์ย้อนหลัง 100 ปี และกฎของพลัง/เวทมนตร์",
                     "characters": "ช่วยออกแบบตัวละครหลัก 3 ตัว พร้อมบุคลิกและปูมหลัง",
+                    "planning": "ช่วยวางโครงเรื่อง 3 องก์ (Act 1, 2, 3) และจุดหักมุมที่น่าสนใจ",
                     "story": "ช่วยร่างโครงสร้างของตอนที่ 1 และประโยคเปิดเรื่องที่ทรงพลัง"
                 }
                 
@@ -85,7 +87,7 @@ class WizardTab:
                     messagebox.showinfo("Divine Guidance", reply)
                     
                     # Move to next phase
-                    phases = ["synopsis", "planning", "world", "characters", "story"]
+                    phases = ["synopsis", "world", "lore", "characters", "planning", "story"]
                     try:
                         curr_idx = phases.index(phase)
                         if curr_idx < len(phases) - 1:

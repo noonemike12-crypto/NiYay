@@ -17,13 +17,21 @@ class WorldTab:
         self.world_name = self.create_input(card, "ชื่อโลก / ชื่อเรื่อง")
         self.world_genre = self.create_input(card, "แนวเรื่อง (Genre)")
         self.world_theme = self.create_input(card, "ธีมหลัก (Theme)")
+        
+        row2 = tk.Frame(card, bg=card["bg"])
+        row2.pack(fill="x")
+        self.world_geo = self.create_input(card, "ภูมิศาสตร์และสถานที่สำคัญ", 4)
+        self.world_climate = self.create_input(card, "สภาพอากาศและสิ่งแวดล้อม", 4)
+        
         self.world_rules = self.create_input(card, "กฎของโลก / ระบบพลัง", 6)
-        self.world_desc = self.create_input(card, "รายละเอียดเพิ่มเติม", 8)
+        self.world_desc = self.create_input(card, "รายละเอียดเพิ่มเติม / เรื่องย่อ", 8)
         
         # Load data
         self.world_name.insert(0, self.dm.data["world"].get("name", ""))
         self.world_genre.insert(0, self.dm.data["world"].get("genre", ""))
         self.world_theme.insert(0, self.dm.data["world"].get("theme", ""))
+        self.world_geo.insert("1.0", self.dm.data["world"].get("geography", ""))
+        self.world_climate.insert("1.0", self.dm.data["world"].get("climate", ""))
         self.world_rules.insert("1.0", self.dm.data["world"].get("rules", ""))
         self.world_desc.insert("1.0", self.dm.data["world"].get("description", ""))
         
@@ -34,6 +42,8 @@ class WorldTab:
         self.dm.data["world"]["name"] = self.world_name.get()
         self.dm.data["world"]["genre"] = self.world_genre.get()
         self.dm.data["world"]["theme"] = self.world_theme.get()
+        self.dm.data["world"]["geography"] = self.world_geo.get("1.0", tk.END).strip()
+        self.dm.data["world"]["climate"] = self.world_climate.get("1.0", tk.END).strip()
         self.dm.data["world"]["rules"] = self.world_rules.get("1.0", tk.END).strip()
         self.dm.data["world"]["description"] = self.world_desc.get("1.0", tk.END).strip()
         self.dm.save_all()

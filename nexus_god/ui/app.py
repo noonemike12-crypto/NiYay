@@ -161,11 +161,17 @@ class NexusGodWriter:
 
         self.nav_btns = {}
         nav_items = [
-            ("wizard", "✨ วิถีแห่งสวรรค์ (Guided)"), ("chat", "💬 สนทนาทวยเทพ"),
-            ("world", "🌍 กำเนิดโลก"), ("chars", "👤 โรงหล่อตัวละคร"),
-            ("items", "⚔️ คลังไอเทม"), ("plot", "📜 โครงเรื่องสวรรค์"),
-            ("editor", "📝 แก้ไขเนื้อเรื่อง"), ("memory", "🧠 ธนาคารความจำ"),
-            ("review", "🔍 ตรวจสอบคัมภีร์"), ("export", "🚀 AI และส่งออก"),
+            ("wizard", "✨ วิถีแห่งสวรรค์ (Guided)"), 
+            ("chat", "💬 สนทนาทวยเทพ"),
+            ("world", "🌍 กำเนิดโลก"), 
+            ("lore", "📜 ตำนานและประวัติศาสตร์"),
+            ("chars", "👤 โรงหล่อตัวละคร"),
+            ("items", "⚔️ คลังไอเทม"), 
+            ("plot", "📜 โครงเรื่องสวรรค์"),
+            ("editor", "📝 แก้ไขเนื้อเรื่อง"), 
+            ("memory", "🧠 ธนาคารความจำ"),
+            ("review", "🔍 ตรวจสอบคัมภีร์"), 
+            ("export", "🚀 AI และส่งออก"),
             ("settings", "⚙️ ตั้งค่า")
         ]
         for key, label in nav_items:
@@ -196,6 +202,9 @@ class NexusGodWriter:
         
         # Instantiate and build tab
         if tab_key == "world": WorldTab(self.container, self.dm, self.colors, self.build_card, self.create_input).build()
+        elif tab_key == "lore": 
+            from nexus_god.ui.tabs.lore_tab import LoreTab
+            LoreTab(self.container, self.dm, self.colors, self.build_card, self.create_input).build()
         elif tab_key == "plot": PlotTab(self.container, self.dm, self.colors, self.build_card, self.create_input).build()
         elif tab_key == "memory": MemoryTab(self.container, self.dm, self.colors, self.build_card, self.create_input).build()
         elif tab_key == "items": ItemsTab(self.container, self.dm, self.colors, self.build_card, self.create_input).build()

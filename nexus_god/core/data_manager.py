@@ -34,6 +34,10 @@ class NexusDataManager:
                 "culture": "",
                 "sensory": "",
                 "synopsis": "",
+                "timeline": [], # Key historical events
+                "lore": {}, # Mythology, legends, etc.
+                "factions": {}, # Groups, kingdoms, organizations
+                "magic_system": "", # Detailed power rules
             },
             "characters": {},
             "plot": {"act1": "", "act2": "", "act3": "", "key_events": "", "ending": ""},
