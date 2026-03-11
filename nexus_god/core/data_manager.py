@@ -179,6 +179,18 @@ class NexusDataManager:
         """Alias for save_all to ensure compatibility"""
         self.save_all()
 
+    def save_sync(self):
+        """Synchronous save for graceful shutdown."""
+        log_info("Performing synchronous save...")
+        try:
+            with open(self.project_file, "w", encoding="utf-8") as f:
+                json.dump(self.data, f, ensure_ascii=False)
+            with open(self.config_file, "w", encoding="utf-8") as f:
+                json.dump(self.config, f, ensure_ascii=False)
+            log_info("Synchronous save completed.")
+        except Exception as e:
+            log_error(f"Error during synchronous save: {e}")
+
     def list_projects(self):
         try:
             return [

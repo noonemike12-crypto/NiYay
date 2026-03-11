@@ -80,7 +80,10 @@ class NexusGodWriter:
         messagebox.showerror("เกิดข้อผิดพลาด", f"โปรแกรมพบข้อผิดพลาด: {str(val)}")
 
     def setup_responsive_handlers(self):
-        self.root.bind('<Configure>', lambda e: self.update_responsive_layout(e.width, e.height))
+        def on_configure(event):
+            if event.widget == self.root:
+                self.update_responsive_layout(event.width, event.height)
+        self.root.bind('<Configure>', on_configure)
     
     def update_responsive_layout(self, width, height):
         self.window_width = width
@@ -89,9 +92,9 @@ class NexusGodWriter:
         responsive_padx = max(20, int(40 * scale_factor))
         responsive_pady = max(20, int(30 * scale_factor))
         
-        if hasattr(self, 'container'):
+        if hasattr(self, 'container') and self.container.winfo_exists():
             self.container.config(padx=responsive_padx, pady=responsive_pady)
-        if hasattr(self, 'sidebar'):
+        if hasattr(self, 'sidebar') and self.sidebar.winfo_exists():
             self.sidebar.config(width=280 if width >= 1200 else 250)
 
     def build_card(self, parent, title):
@@ -255,7 +258,17 @@ class NexusGodWriter:
 def run_app():
     root = tk.Tk()
     app = NexusGodWriter(root)
-    root.mainloop()
+    try:
+        root.mainloop()
+    except KeyboardInterrupt:
+        print("\nKeyboardInterrupt detected. Saving data...")
+        app.dm.save_sync()
+        print("Data saved. Exiting.")
+        sys.exit(0)
+    except Exception as e:
+        log_error(f"Critical error in mainloop: {e}")
+        app.dm.save_sync()
+        raise
 
 if __name__ == "__main__":
     run_app()

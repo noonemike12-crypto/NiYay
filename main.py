@@ -22,13 +22,17 @@ def terminal_listener():
             break
 
 if __name__ == "__main__":
-    # Start terminal listener thread
-    threading.Thread(target=terminal_listener, daemon=True).start()
-    print("Nexus God Writer started. Type 'exit' or 'stop' in terminal to quit.")
-    
-    # แสดงหน้าเลือกโปรเจกต์ก่อน
-    selected_project = show_project_selector()
-    
-    # ถ้าเลือกโปรเจกต์แล้ว ให้เข้าโปรแกรม
-    if selected_project:
-        run_app()
+    try:
+        # Start terminal listener thread
+        threading.Thread(target=terminal_listener, daemon=True).start()
+        print("Nexus God Writer started. Type 'exit' or 'stop' in terminal to quit.")
+        
+        # แสดงหน้าเลือกโปรเจกต์ก่อน
+        selected_project = show_project_selector()
+        
+        # ถ้าเลือกโปรเจกต์แล้ว ให้เข้าโปรแกรม
+        if selected_project:
+            run_app()
+    except KeyboardInterrupt:
+        print("\nProgram stopped by user.")
+        sys.exit(0)
