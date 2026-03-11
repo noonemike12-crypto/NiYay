@@ -176,8 +176,19 @@ class NexusDataManager:
             log_error(f"Error initiating async save: {e}")
 
     def save_config(self):
-        """Alias for save_all to ensure compatibility"""
-        self.save_all()
+        """Save only the application configuration."""
+        log_debug("Saving configuration")
+        try:
+            config_copy = json.loads(json.dumps(self.config))
+            def task():
+                try:
+                    with open(self.config_file, "w", encoding="utf-8") as f:
+                        json.dump(config_copy, f, ensure_ascii=False)
+                except Exception as e:
+                    log_error(f"Error saving config: {e}")
+            threading.Thread(target=task, daemon=True).start()
+        except Exception as e:
+            log_error(f"Error initiating config save: {e}")
 
     def save_sync(self):
         """Synchronous save for graceful shutdown."""
